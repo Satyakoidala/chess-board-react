@@ -2,6 +2,7 @@ import Timer from "./Timer.jsx";
 import PropTypes from "prop-types";
 
 function Dashboard({
+	currentPlayerDisplay,
 	currentPlayer,
 	isCheck,
 	isMate,
@@ -13,11 +14,12 @@ function Dashboard({
 	setBlackTime,
 	handleTimeout,
 	isPaused,
+	gameState,
 }) {
 	return (
 		<aside className="dashboard">
 			<h2>Current Player</h2>
-			<div className="current-player-label">{currentPlayer}</div>
+			<div className="current-player-label">{currentPlayerDisplay}</div>
 			{isCheck && !isMate && <div className="status check">Check!</div>}
 			{isMate && (
 				<div className="status mate">
@@ -34,20 +36,28 @@ function Dashboard({
 			<h2>Timer</h2>
 			<div className="timer">
 				<Timer
-					pause={currentPlayer === "black" || !!winner}
+					pause={
+						!!winner || // Game over by timeout
+						gameState.status !== "warm" || // Not in active game
+						currentPlayer !== "white" || // Not white's turn
+						isPaused // Global pause (needs to be last to allow resume)
+					}
 					color="white"
 					time={whiteTime}
 					setTime={setWhiteTime}
 					onTimeout={() => handleTimeout("white")}
-					globalPause={isPaused}
 				/>
 				<Timer
-					pause={currentPlayer === "white" || !!winner}
+					pause={
+						!!winner || // Game over by timeout
+						gameState.status !== "warm" || // Not in active game
+						currentPlayer !== "black" || // Not black's turn
+						isPaused // Global pause (needs to be last to allow resume)
+					}
 					color="black"
 					time={blackTime}
 					setTime={setBlackTime}
 					onTimeout={() => handleTimeout("black")}
-					globalPause={isPaused}
 				/>
 			</div>
 		</aside>
@@ -55,7 +65,8 @@ function Dashboard({
 }
 
 Dashboard.propTypes = {
-	currentPlayer: PropTypes.string.isRequired,
+	currentPlayerDisplay: PropTypes.string.isRequired,
+	currentPlayer: PropTypes.oneOf(["white", "black", undefined]).isRequired,
 	isCheck: PropTypes.bool.isRequired,
 	isMate: PropTypes.bool.isRequired,
 	isStalemate: PropTypes.bool.isRequired,
@@ -66,6 +77,9 @@ Dashboard.propTypes = {
 	setBlackTime: PropTypes.func.isRequired,
 	handleTimeout: PropTypes.func.isRequired,
 	isPaused: PropTypes.bool.isRequired,
+	gameState: PropTypes.shape({
+		status: PropTypes.oneOf(["cold", "warm"]).isRequired,
+	}).isRequired,
 };
 
 export default Dashboard;

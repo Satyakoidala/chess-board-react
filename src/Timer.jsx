@@ -2,19 +2,20 @@ import CountdownTimer from "./CountDownTimer.jsx";
 import PropTypes from "prop-types";
 
 // Timer now takes color and currentPlayer to style background/text
-function Timer({ pause = true, color, time, setTime, onTimeout, globalPause }) {
-	const isRunning = !pause && !globalPause;
-	const bgClass = isRunning ? `timer-${color}` : `timer-paused`;
-	const textClass = isRunning
-		? color === "white"
-			? "timer-text-black"
-			: "timer-text-white"
-		: "timer-text-paused";
+function Timer({ pause = true, color, time, setTime, onTimeout }) {
+	// Timer should be running when not paused
+	const isRunning = !pause;
+
+	// Apply appropriate styling classes based on color and running state
+	const bgClass = `timer-${color}`;
+	const textClass =
+		color === "white" ? "timer-text-black" : "timer-text-white";
+
 	return (
-		<div className={`timer-box ${bgClass}`}>
+		<div className={`timer-box ${isRunning ? bgClass : "timer-paused"}`}>
 			<CountdownTimer
-				isPaused={pause || globalPause}
-				textClass={textClass}
+				isPaused={pause}
+				textClass={isRunning ? textClass : "timer-text-paused"}
 				time={time}
 				setTime={setTime}
 				onTimeout={onTimeout}
@@ -29,7 +30,6 @@ Timer.propTypes = {
 	time: PropTypes.number.isRequired,
 	setTime: PropTypes.func.isRequired,
 	onTimeout: PropTypes.func,
-	globalPause: PropTypes.bool,
 };
 
 export default Timer;

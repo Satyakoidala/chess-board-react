@@ -1,9 +1,55 @@
 import { useState, useEffect } from "react";
 import { useChessBoard, PIECES, ORDER } from "./useChessBoard.jsx";
 import Dashboard from "./Dashboard.jsx";
+import GameConfig from "./GameConfig.jsx";
 import "./App.css";
 
 function App() {
+	// Constants
+	const GAME_STATE_KEY = "chess-game-state";
+	const WINNER_KEY = "chess-winner-v1";
+
+	// Helper functions
+	const loadWinner = () => {
+		try {
+			const raw = localStorage.getItem(WINNER_KEY);
+			if (!raw) return null;
+			return JSON.parse(raw);
+		} catch {
+			return null;
+		}
+	};
+	const [gameState, setGameState] = useState(() => {
+		const savedState = localStorage.getItem(GAME_STATE_KEY);
+		if (savedState) {
+			const parsed = JSON.parse(savedState);
+
+			// If game was completed, return to cold state
+			if (parsed.isCompleted) {
+				localStorage.removeItem(GAME_STATE_KEY);
+				localStorage.removeItem(WINNER_KEY);
+				return { status: "cold" };
+			}
+
+			// If game is in cold state, maintain it
+			if (parsed.status === "cold") {
+				return { status: "cold" };
+			}
+
+			// If game is in progress or paused, restore the state
+			if (parsed.status === "warm") {
+				// Set game to paused state on refresh when in warm state
+				return {
+					...parsed,
+					showConfig: false,
+					isPaused: true, // ensure game starts paused on refresh
+				};
+			}
+		}
+		// Default to cold state
+		return { status: "cold" };
+	});
+
 	// --- Chess logic ---
 	const {
 		state: board,
@@ -15,7 +61,7 @@ function App() {
 		isMate,
 		isStalemate,
 	} = useChessBoard({
-		persist: true,
+		persist: gameState.status === "warm",
 	});
 
 	// --- Piece selection state for click-to-move ---
@@ -78,24 +124,26 @@ function App() {
 	};
 
 	// --- Pause/Resume logic ---
-	const PAUSE_KEY = "chess-game-paused";
 	const [isPaused, setIsPaused] = useState(() => {
-		const pauseState = localStorage.getItem(PAUSE_KEY);
-		return pauseState ? JSON.parse(pauseState) : false;
+		// Game should always start paused on refresh if in warm state
+		return gameState.status === "warm" ? true : false;
 	});
 
-	// Persist pause state
-	useEffect(() => {
-		localStorage.setItem(PAUSE_KEY, JSON.stringify(isPaused));
-	}, [isPaused]);
-
 	const handlePauseResume = () => {
-		setIsPaused(!isPaused);
+		if (gameState.status === "warm") {
+			setIsPaused(!isPaused);
+			// Update game state to reflect pause status
+			setGameState((prev) => ({
+				...prev,
+				isPaused: !isPaused,
+			}));
+		}
 	};
 
 	// --- Timer logic ---
 	const TIMER_KEY = "chess-timers-v1";
 	const DEFAULT_TIME = 600;
+
 	// Try to load from localStorage
 	const loadTimers = () => {
 		try {
@@ -114,33 +162,29 @@ function App() {
 		}
 		return null;
 	};
-	const persisted = loadTimers();
 
-	const [whiteTime, setWhiteTime] = useState(
-		persisted?.white ?? DEFAULT_TIME
+	const [whiteTime, setWhiteTime] = useState(() =>
+		gameState.status === "cold"
+			? DEFAULT_TIME
+			: loadTimers()?.white ?? DEFAULT_TIME
 	);
-	const [blackTime, setBlackTime] = useState(
-		persisted?.black ?? DEFAULT_TIME
+	const [blackTime, setBlackTime] = useState(() =>
+		gameState.status === "cold"
+			? DEFAULT_TIME
+			: loadTimers()?.black ?? DEFAULT_TIME
 	);
-	// Persist timers on change
+
+	// Persist timers on change only in warm state
 	useEffect(() => {
-		localStorage.setItem(
-			TIMER_KEY,
-			JSON.stringify({ white: whiteTime, black: blackTime })
-		);
-	}, [whiteTime, blackTime]);
+		if (gameState.status === "warm") {
+			localStorage.setItem(
+				TIMER_KEY,
+				JSON.stringify({ white: whiteTime, black: blackTime })
+			);
+		}
+	}, [whiteTime, blackTime, gameState.status]);
 
 	// --- Winner logic (persisted) ---
-	const WINNER_KEY = "chess-winner-v1";
-	const loadWinner = () => {
-		try {
-			const raw = localStorage.getItem(WINNER_KEY);
-			if (!raw) return null;
-			return JSON.parse(raw);
-		} catch {
-			return null;
-		}
-	};
 	const [winner, setWinnerState] = useState(loadWinner());
 	// Persist winner on change
 	useEffect(() => {
@@ -155,23 +199,65 @@ function App() {
 		if (isMate || isStalemate) setWinnerState(null);
 	}, [isMate, isStalemate]);
 
+	// Save game state to localStorage whenever it changes
+	useEffect(() => {
+		localStorage.setItem(
+			GAME_STATE_KEY,
+			JSON.stringify({
+				...gameState,
+				isCompleted: isMate || isStalemate || winner !== null,
+			})
+		);
+	}, [gameState, isMate, isStalemate, winner]);
+
 	// --- Restart logic ---
 	const handleRestart = () => {
 		// Clear all localStorage to ensure all chess state is wiped
 		localStorage.clear();
+		setGameState({ status: "cold" });
+		setWhiteTime(DEFAULT_TIME);
+		setBlackTime(DEFAULT_TIME);
+		setWinnerState(null);
+		setIsPaused(false);
 		window.location.reload(); // reload to fully reset all state
 	};
 
+	const handleGameConfig = (config) => {
+		setGameState({
+			status: "warm",
+			players: {
+				white:
+					config.player1.color === "white"
+						? config.player1.name
+						: config.player2.name,
+				black:
+					config.player1.color === "white"
+						? config.player2.name
+						: config.player1.name,
+			},
+			timerDuration: config.timerDuration,
+		});
+		setWhiteTime(config.timerDuration);
+		setBlackTime(config.timerDuration);
+		setIsPaused(false);
+	};
+
+	const handleConfigCancel = () => {
+		setGameState({ status: "cold" });
+	};
+
 	// --- Render ---
-	const gameStarted = Object.values(board).some((row) =>
-		Object.values(row).some((cell) => cell.name)
-	);
 	return (
 		<div>
 			<div className="app">
 				<div className="dashboard-container">
 					<h1>Chess Game</h1>
 					<Dashboard
+						currentPlayerDisplay={
+							gameState.status === "warm"
+								? `${gameState.players?.[currentPlayer]} (${currentPlayer})`
+								: "Player #"
+						}
 						currentPlayer={currentPlayer}
 						isCheck={isCheck}
 						isMate={isMate}
@@ -183,9 +269,10 @@ function App() {
 						setBlackTime={setBlackTime}
 						handleTimeout={handleTimeout}
 						isPaused={isPaused}
+						gameState={gameState}
 					/>
-					{gameStarted && (
-						<div className="game-controls">
+					<div className="game-controls">
+						{gameState.status === "cold" ? (
 							<button
 								style={{
 									margin: "2.5rem 0.5rem 1.5rem",
@@ -194,41 +281,74 @@ function App() {
 									fontWeight: 700,
 									padding: "0.7em 2.2em",
 									borderRadius: "0.5em",
-									background: "#ffe066",
-									color: "#222",
-									border: "none",
-									boxShadow: "0 2px 8px #0002",
-									cursor: "pointer",
-									letterSpacing: "0.04em",
-								}}
-								onClick={handleRestart}
-							>
-								Restart Game
-							</button>
-							<button
-								style={{
-									margin: "2.5rem 0.5rem 1.5rem",
-									display: "inline-block",
-									fontSize: "1.2rem",
-									fontWeight: 700,
-									padding: "0.7em 2.2em",
-									borderRadius: "0.5em",
-									background: isPaused
-										? "#4CAF50"
-										: "#f44336",
+									background: "#4CAF50",
 									color: "#fff",
 									border: "none",
 									boxShadow: "0 2px 8px #0002",
 									cursor: "pointer",
 									letterSpacing: "0.04em",
 								}}
-								onClick={handlePauseResume}
+								onClick={() =>
+									setGameState({
+										...gameState,
+										showConfig: true,
+									})
+								}
 							>
-								{isPaused ? "Resume Game" : "Pause Game"}
+								Start Game
 							</button>
-						</div>
-					)}
+						) : (
+							<>
+								<button
+									style={{
+										margin: "2.5rem 0.5rem 1.5rem",
+										display: "inline-block",
+										fontSize: "1.2rem",
+										fontWeight: 700,
+										padding: "0.7em 2.2em",
+										borderRadius: "0.5em",
+										background: "#ffe066",
+										color: "#222",
+										border: "none",
+										boxShadow: "0 2px 8px #0002",
+										cursor: "pointer",
+										letterSpacing: "0.04em",
+									}}
+									onClick={handleRestart}
+								>
+									Reset Game
+								</button>
+								<button
+									style={{
+										margin: "2.5rem 0.5rem 1.5rem",
+										display: "inline-block",
+										fontSize: "1.2rem",
+										fontWeight: 700,
+										padding: "0.7em 2.2em",
+										borderRadius: "0.5em",
+										background: isPaused
+											? "#4CAF50"
+											: "#f44336",
+										color: "#fff",
+										border: "none",
+										boxShadow: "0 2px 8px #0002",
+										cursor: "pointer",
+										letterSpacing: "0.04em",
+									}}
+									onClick={handlePauseResume}
+								>
+									{isPaused ? "Resume Game" : "Pause Game"}
+								</button>
+							</>
+						)}
+					</div>
 				</div>
+				{gameState.showConfig && (
+					<GameConfig
+						onSubmit={handleGameConfig}
+						onCancel={handleConfigCancel}
+					/>
+				)}
 				<div
 					className={`board-container ${
 						isPaused ? "board-paused" : ""

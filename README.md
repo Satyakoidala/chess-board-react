@@ -90,7 +90,7 @@ Made with ❤️ by Satya Koidalarop pieces to their destination
 
 [Live Demo](https://react-chess-board-game.netlify.app)
 
-![Game screenshot](/chess-board-react//public/image.png)
+![Game screenshot](/public/image.png)
 
 ## Overview
 
