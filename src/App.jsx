@@ -12,7 +12,7 @@ function App() {
 	// Helper functions
 	const loadWinner = () => {
 		try {
-			const raw = localStorage.getItem(WINNER_KEY);
+			const raw = sessionStorage.getItem(WINNER_KEY);
 			if (!raw) return null;
 			return JSON.parse(raw);
 		} catch {
@@ -20,14 +20,13 @@ function App() {
 		}
 	};
 	const [gameState, setGameState] = useState(() => {
-		const savedState = localStorage.getItem(GAME_STATE_KEY);
+		const savedState = sessionStorage.getItem(GAME_STATE_KEY);
 		if (savedState) {
 			const parsed = JSON.parse(savedState);
 
 			// If game was completed, return to cold state
 			if (parsed.isCompleted) {
-				localStorage.removeItem(GAME_STATE_KEY);
-				localStorage.removeItem(WINNER_KEY);
+				sessionStorage.clear();
 				return { status: "cold" };
 			}
 
@@ -74,7 +73,7 @@ function App() {
 	// Handle click on a cell
 	const handleCellClick = (cell, row, col) => {
 		// Prevent any moves if game is paused
-		if (isPaused) {
+		if (isPaused || gameState.status !== "warm") {
 			return;
 		}
 
@@ -100,7 +99,7 @@ function App() {
 	// Handle drag start
 	const handleDragStart = (cell, row, col) => {
 		// Prevent drag if game is paused
-		if (isPaused) {
+		if (isPaused || gameState.status !== "warm") {
 			return false;
 		}
 
@@ -113,7 +112,7 @@ function App() {
 	// Handle drop
 	const handleDrop = (cell, row, col) => {
 		// Prevent drop if game is paused
-		if (isPaused) {
+		if (isPaused || gameState.status !== "warm") {
 			return;
 		}
 
@@ -144,10 +143,10 @@ function App() {
 	const TIMER_KEY = "chess-timers-v1";
 	const DEFAULT_TIME = 600;
 
-	// Try to load from localStorage
+	// Try to load from sessionStorage
 	const loadTimers = () => {
 		try {
-			const raw = localStorage.getItem(TIMER_KEY);
+			const raw = sessionStorage.getItem(TIMER_KEY);
 			if (!raw) return null;
 			const parsed = JSON.parse(raw);
 			if (
@@ -177,7 +176,7 @@ function App() {
 	// Persist timers on change only in warm state
 	useEffect(() => {
 		if (gameState.status === "warm") {
-			localStorage.setItem(
+			sessionStorage.setItem(
 				TIMER_KEY,
 				JSON.stringify({ white: whiteTime, black: blackTime })
 			);
@@ -188,7 +187,7 @@ function App() {
 	const [winner, setWinnerState] = useState(loadWinner());
 	// Persist winner on change
 	useEffect(() => {
-		localStorage.setItem(WINNER_KEY, JSON.stringify(winner));
+		sessionStorage.setItem(WINNER_KEY, JSON.stringify(winner));
 	}, [winner]);
 	// If a timer runs out, declare the opponent as winner
 	const handleTimeout = (color) => {
@@ -199,9 +198,9 @@ function App() {
 		if (isMate || isStalemate) setWinnerState(null);
 	}, [isMate, isStalemate]);
 
-	// Save game state to localStorage whenever it changes
+	// Save game state to sessionStorage whenever it changes
 	useEffect(() => {
-		localStorage.setItem(
+		sessionStorage.setItem(
 			GAME_STATE_KEY,
 			JSON.stringify({
 				...gameState,
@@ -212,8 +211,8 @@ function App() {
 
 	// --- Restart logic ---
 	const handleRestart = () => {
-		// Clear all localStorage to ensure all chess state is wiped
-		localStorage.clear();
+		// Clear all sessionStorage to ensure all chess state is wiped
+		sessionStorage.clear();
 		setGameState({ status: "cold" });
 		setWhiteTime(DEFAULT_TIME);
 		setBlackTime(DEFAULT_TIME);
@@ -251,7 +250,7 @@ function App() {
 		<div>
 			<div className="app">
 				<div className="dashboard-container">
-					<h1>Chess Game</h1>
+					<h1>Invite & Play!</h1>
 					<Dashboard
 						currentPlayerDisplay={
 							gameState.status === "warm"
@@ -274,20 +273,7 @@ function App() {
 					<div className="game-controls">
 						{gameState.status === "cold" ? (
 							<button
-								style={{
-									margin: "2.5rem 0.5rem 1.5rem",
-									display: "inline-block",
-									fontSize: "1.2rem",
-									fontWeight: 700,
-									padding: "0.7em 2.2em",
-									borderRadius: "0.5em",
-									background: "#4CAF50",
-									color: "#fff",
-									border: "none",
-									boxShadow: "0 2px 8px #0002",
-									cursor: "pointer",
-									letterSpacing: "0.04em",
-								}}
+								className="control-button start-button"
 								onClick={() =>
 									setGameState({
 										...gameState,
@@ -300,45 +286,25 @@ function App() {
 						) : (
 							<>
 								<button
-									style={{
-										margin: "2.5rem 0.5rem 1.5rem",
-										display: "inline-block",
-										fontSize: "1.2rem",
-										fontWeight: 700,
-										padding: "0.7em 2.2em",
-										borderRadius: "0.5em",
-										background: "#ffe066",
-										color: "#222",
-										border: "none",
-										boxShadow: "0 2px 8px #0002",
-										cursor: "pointer",
-										letterSpacing: "0.04em",
-									}}
+									className="control-button reset-button"
 									onClick={handleRestart}
 								>
 									Reset Game
 								</button>
-								<button
-									style={{
-										margin: "2.5rem 0.5rem 1.5rem",
-										display: "inline-block",
-										fontSize: "1.2rem",
-										fontWeight: 700,
-										padding: "0.7em 2.2em",
-										borderRadius: "0.5em",
-										background: isPaused
-											? "#4CAF50"
-											: "#f44336",
-										color: "#fff",
-										border: "none",
-										boxShadow: "0 2px 8px #0002",
-										cursor: "pointer",
-										letterSpacing: "0.04em",
-									}}
-									onClick={handlePauseResume}
-								>
-									{isPaused ? "Resume Game" : "Pause Game"}
-								</button>
+								{!winner && (
+									<button
+										className={`control-button ${
+											isPaused
+												? "resume-button"
+												: "pause-button"
+										}`}
+										onClick={handlePauseResume}
+									>
+										{isPaused
+											? "Resume Game"
+											: "Pause Game"}
+									</button>
+								)}
 							</>
 						)}
 					</div>
@@ -442,19 +408,7 @@ function App() {
 													}
 												>
 													{cell.name && (
-														<span
-															className="piece-anim"
-															style={{
-																fontFamily:
-																	"Arial Unicode MS, Segoe UI Symbol, sans-serif",
-																fontWeight: 700,
-																fontSize:
-																	"2.2rem",
-																lineHeight: 1,
-																display:
-																	"inline-block",
-															}}
-														>
+														<span className="piece piece-anim">
 															{PIECES[
 																cell.color
 															]?.[cell.name] ||

@@ -79,7 +79,7 @@ function GameConfig({ onSubmit, onCancel }) {
 	return (
 		<div className="game-config-overlay">
 			<div className="game-config-modal">
-				<h2>Configure your game!</h2>
+				<h2>Let&apos;s Play!</h2>
 				<form onSubmit={handleSubmit}>
 					<div className="players-container">
 						<div className="player-config">

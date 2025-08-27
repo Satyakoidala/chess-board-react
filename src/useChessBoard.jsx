@@ -14,12 +14,12 @@ export const PIECES = {
 		soldier: "\u265F", // ♟
 	},
 	black: {
-		king: "\u2654", // ♔
-		queen: "\u2655", // ♕
-		rook: "\u2656", // ♖
-		bishop: "\u2657", // ♗
-		knight: "\u2658", // ♘
-		soldier: "\u2659", // ♙
+		king: "\u265A", // ♚
+		queen: "\u265B", // ♛
+		rook: "\u265C", // ♜
+		bishop: "\u265D", // ♝
+		knight: "\u265E", // ♞
+		soldier: "\u265F", // ♟
 	},
 };
 
@@ -521,14 +521,14 @@ const checkKingMove = (state, S, T) => {
 	return Math.abs(x2 - x1) <= 1 && Math.abs(y2 - y1) <= 1;
 };
 
-// Key for localStorage
+// Key for sessionStorage
 const STORAGE_KEY = "chess-board-state-v1";
 
 export const useChessBoard = () => {
-	// Load from localStorage if available
+	// Load from sessionStorage if available
 	const loadPersisted = () => {
 		try {
-			const raw = localStorage.getItem(STORAGE_KEY);
+			const raw = sessionStorage.getItem(STORAGE_KEY);
 			if (!raw) return null;
 			const parsed = JSON.parse(raw);
 			// Defensive: ensure board and player exist
@@ -551,9 +551,9 @@ export const useChessBoard = () => {
 	);
 	const selectPiece = useRef(null);
 
-	// Save to localStorage on state or player change
+	// Save to sessionStorage on state or player change
 	useEffect(() => {
-		localStorage.setItem(
+		sessionStorage.setItem(
 			STORAGE_KEY,
 			JSON.stringify({ board: state, currentPlayer })
 		);
@@ -733,16 +733,16 @@ export const useChessBoard = () => {
 		}
 	};
 
-	// Persist current player to localStorage
+	// Persist current player to sessionStorage
 	useEffect(() => {
 		if (currentPlayer) {
-			localStorage.setItem(CURRENT_PLAYER_KEY, currentPlayer);
+			sessionStorage.setItem(CURRENT_PLAYER_KEY, currentPlayer);
 		}
 	}, [currentPlayer]);
 
-	// Initialize current player from localStorage or default to white
+	// Initialize current player from sessionStorage or default to white
 	useEffect(() => {
-		const savedPlayer = localStorage.getItem(CURRENT_PLAYER_KEY);
+		const savedPlayer = sessionStorage.getItem(CURRENT_PLAYER_KEY);
 		if (savedPlayer) {
 			setCurrentPlayer(savedPlayer);
 		}

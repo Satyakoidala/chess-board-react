@@ -18,8 +18,10 @@ function Dashboard({
 }) {
 	return (
 		<aside className="dashboard">
-			<h2>Current Player</h2>
-			<div className="current-player-label">{currentPlayerDisplay}</div>
+			{/* <h2>Current Player</h2> */}
+			<div className="current-player-label">
+				{currentPlayerDisplay.toUpperCase()}
+			</div>
 			{isCheck && !isMate && <div className="status check">Check!</div>}
 			{isMate && (
 				<div className="status mate">
@@ -33,7 +35,7 @@ function Dashboard({
 			{winner && (
 				<div className="status mate">{winner} wins by timeout!</div>
 			)}
-			<h2>Timer</h2>
+			{/* <h2>Timer</h2> */}
 			<div className="timer">
 				<Timer
 					pause={
